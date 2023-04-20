@@ -6,25 +6,32 @@ import net.sourceforge.pmd.renderers.TextPadRenderer;
 import net.sourceforge.pmd.renderers.TextRenderer;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public final class Main {
 
     public static void main(String[] args) {
-        PMD.StatusCode result = PMD.runPmd(args);
+        List<String> arguments = Arrays.asList(args);
+        String executionResultOutputPath = getTestResultOutputPath(arguments);
+
+        String[] pmdArguments = sanitizePmdArguments(arguments);
+
+        PMD.StatusCode result = PMD.runPmd(pmdArguments);
 
         if (!result.equals(PMD.StatusCode.OK)) {
-            printError(args);
+            printError(arguments);
         }
 
-        System.exit(result.toInt());
+        writeExecutionResultToFile(result, executionResultOutputPath);
+
+        System.exit(0);
     }
 
-    private static void printError(String[] args) {
-        List<String> arguments = Arrays.asList(args);
+    private static void printError(List<String> arguments) {
 
         String reportFormat = argument(arguments, "--format");
         String reportFilePath = argument(arguments, "--report-file");
@@ -34,6 +41,48 @@ public final class Main {
                 printFile(reportFilePath);
             }
         }
+    }
+
+    private static void writeExecutionResultToFile(PMD.StatusCode statusCode, String executionResultOutputPath) {
+        String content = String.format("#!/bin/bash\n\nexit %d\n", statusCode.toInt());
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(executionResultOutputPath))) {
+            writer.write(content);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String getTestResultOutputPath(List<String> arguments) {
+        String outputPath = argument(arguments, "--test-result");
+        if (outputPath == null) {
+            System.exit(1);
+        }
+        return outputPath;
+    }
+
+    private static String[] sanitizePmdArguments(List<String> arguments) {
+        Set<String> excludeArgs = new HashSet<>(new ArrayList<>(Collections.singletonList("--execution-result")));
+        return filterOutArgValuePairs(arguments, excludeArgs);
+    }
+
+    public static String[] filterOutArgValuePairs(List<String> args, Set<String> excludeArgs) {
+        List<String> filteredList = new ArrayList<>();
+
+        int index = 0;
+
+        while (index < args.size()) {
+            String value = args.get(index);
+            if (!excludeArgs.contains(value)) {
+                filteredList.add(value);
+            } else {
+                // skip the arg-value pair since matching argument was found
+                index += 1;
+            }
+            index += 1;
+        }
+
+        return filteredList.toArray(new String[0]);
     }
 
     private static String argument(List<String> arguments, String name) {

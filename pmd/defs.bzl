@@ -58,6 +58,11 @@ def _impl(ctx):
     arguments.add("--no-cache")
     arguments.add("--threads", ctx.attr.threads_count)
 
+    # Test execution options
+    execution_result = ctx.actions.declare_file("{}_exit_code.sh".format(ctx.label.name))
+    outputs.append(execution_result)
+    arguments.add("--execution-result", "{}".format(execution_result.path))
+
     # Run
 
     ctx.actions.run(
@@ -68,7 +73,12 @@ def _impl(ctx):
         arguments = [arguments],
     )
 
-    return [DefaultInfo(files = depset(outputs))]
+    return [
+        DefaultInfo(
+            files = depset(outputs),
+            executable = execution_result,
+        )
+    ]
 
 def _write_files_list(ctx, files, file_name):
     file = ctx.actions.declare_file(file_name)
@@ -88,7 +98,7 @@ _report_format_extensions = {
     "xml": "xml",
 }
 
-pmd = rule(
+pmd_test = rule(
     implementation = _impl,
     attrs = {
         "_executable": attr.label(
@@ -144,4 +154,5 @@ pmd = rule(
         ),
     },
     provides = [DefaultInfo],
+    test = True,
 )
