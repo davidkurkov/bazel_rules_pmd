@@ -5,22 +5,55 @@ import net.sourceforge.pmd.renderers.TextColorRenderer;
 import net.sourceforge.pmd.renderers.TextPadRenderer;
 import net.sourceforge.pmd.renderers.TextRenderer;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public final class Main {
 
     public static void main(String[] args) {
-        int result = PMD.run(args);
+        ArrayList<String> newArguments = new ArrayList<>();
+        boolean shouldRunAsTestTarget = false;
+        String outputPath = "";
+        boolean foundExitFile = false;
 
-        if (result != 0) {
+        for (String arg : args) {
+            if ("--run_as_test_target".equals(arg)) {
+                shouldRunAsTestTarget = true;
+            } else if ("--test_target_report".startsWith(arg)) {
+                foundExitFile = true;
+            } else {
+                if (foundExitFile) {
+                    outputPath = arg;
+                    foundExitFile = false;
+                } else {
+                    newArguments.add(arg);
+                }
+            }
+        }
+
+        System.out.printf(Arrays.toString(newArguments.toArray(new String[0])));
+
+        PMD.StatusCode result = PMD.runPmd(newArguments.toArray(new String[0]));
+
+        if (!result.equals(PMD.StatusCode.OK)) {
             printError(args);
         }
 
-        System.exit(result);
+        String content = String.format("#!/bin/bash\n\nexit %d\n", result.toInt());
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath))) {
+            writer.write(content);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        if (shouldRunAsTestTarget) {
+            System.exit(0);
+        } else {
+            System.exit(result.toInt());
+        }
     }
 
     private static void printError(String[] args) {
