@@ -58,8 +58,9 @@ def _impl(ctx):
     arguments.add("--no-cache")
     arguments.add("--threads", ctx.attr.threads_count)
 
-    # Test execution options
-    execution_result = ctx.actions.declare_file("{}_exit_code.sh".format(ctx.label.name))
+    # Execution-result config
+    file_extension = "bat" if ctx.attr.is_windows else "sh"
+    execution_result = ctx.actions.declare_file("{}_execution_result.{}".format(ctx.label.name, file_extension))
     outputs.append(execution_result)
     arguments.add("--execution-result", "{}".format(execution_result.path))
 
@@ -152,7 +153,19 @@ pmd_test = rule(
             default = 1,
             doc = "See [PMD `-threads` option](https://pmd.github.io/latest/pmd_userdocs_cli_reference.html)",
         ),
+        "is_windows": attr.bool(mandatory = True),
     },
     provides = [DefaultInfo],
     test = True,
 )
+
+def pmd_test_target(name, srcs, **kwargs):
+    pmd_test(
+        name = name + "_pmd_test",
+        srcs = srcs,
+        is_windows = select({
+            "@bazel_tools//src/conditions:host_windows": True,
+            "//conditions:default": False,
+        }),
+        **kwargs,
+    )

@@ -61,7 +61,7 @@ public final class Main {
         if (os.contains("win")) {
             content = String.format("exit /b %d", statusCode.toInt());
         } else {
-            content = String.format("#!/bin/bash\n\nexit %d", statusCode.toInt());
+            content = String.format("#!/bin/bash\n\nexit %d\n", statusCode.toInt());
         }
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(executionResultOutputPath))) {
